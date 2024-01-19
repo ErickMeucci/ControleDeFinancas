@@ -3,6 +3,16 @@ from tkinter import ttk
 import sqlite3 
 
 Janela = Tk()
+class funcao():
+    def conecta_bd(self):
+        self.conn = sqlite3.connect("gastos")
+        self.cursor = self.conn.cursor(); print("Conectando ao banco de dados")
+    def desconecta(self):
+        self.conn.close(); print("Desconecta")
+    def montatabela(self):
+        self.conecta_bd
+        ##Criar tabela
+        self.cursor.execute()
 
 class aplicacao():
     def __init__(self):
@@ -20,6 +30,7 @@ class aplicacao():
         self.Janela.resizable(True,True)
         self.Janela.maxsize(width=1280,height=960)
         self.Janela.minsize(width=800,height=600)
+        self.imagemlixo = PhotoImage(file="C:/Users/Erick/Desktop/Controle financeiro/ControleDeFinancas/img/delete.png")
     def frames_tela_principal(self):
       self.frame_1 = Frame(self.Janela, bd=4, bg="azure",highlightbackground="gray44",highlightthickness=2 )
       self.frame_1.place(relx=0.01,rely=0.01,relwidth=0.98,relheight=0.12)
@@ -37,19 +48,29 @@ class aplicacao():
 
         #botao para adcionar as porcentagens
         self.bt_f1 = Button(self.frame_1, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
-        self.bt_f1.place(relx=0.89, rely=0.30,relwidth=0.1,relheight=0.40)
+        self.bt_f1.place(relx=0.89, rely=0.05,relwidth=0.1,relheight=0.40)
+        self.bta_f1 = Button(self.frame_1, text="Limpar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bta_f1.place(relx=0.89, rely=0.55,relwidth=0.1,relheight=0.40)
         #botao para adicinar o salario
         self.bt_f2 = Button(self.frame_2, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
         self.bt_f2.place(relx=0.80, rely=0.73,relwidth=0.20,relheight=0.25)
+        self.bta_f2 = Button(self.frame_2, image=self.imagemlixo,bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bta_f2.place(relx=0.7, rely=0.73,relwidth=0.09,relheight=0.25)
         #botao para adicinar o investimentos
         self.bt_f3 = Button(self.frame_3, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
         self.bt_f3.place(relx=0.80, rely=0.73,relwidth=0.20,relheight=0.25)
+        self.bta_f3 = Button(self.frame_3, image=self.imagemlixo,bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bta_f3.place(relx=0.70, rely=0.73,relwidth=0.09,relheight=0.25)
         #botao para adicinar o despesas
         self.bt_f4 = Button(self.frame_4, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
         self.bt_f4.place(relx=0.80, rely=0.73,relwidth=0.20,relheight=0.25)
+        self.bta_f4 = Button(self.frame_4, image=self.imagemlixo,bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bta_f4.place(relx=0.70, rely=0.73,relwidth=0.09,relheight=0.25)
         #botao para adicinar o improvisos
         self.bt_f5 = Button(self.frame_5, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
         self.bt_f5.place(relx=0.80, rely=0.73,relwidth=0.20,relheight=0.25)
+        self.bta_f5 = Button(self.frame_5, image=self.imagemlixo, bd=3, bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bta_f5.place(relx=0.70, rely=0.73,relwidth=0.09,relheight=0.25)
         #botao para remover
         self.bt_f6 = Button(self.frame_6, text="Remover",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
         self.bt_f6.place(relx=0.90, rely=0.90,relwidth=0.08,relheight=0.09)
