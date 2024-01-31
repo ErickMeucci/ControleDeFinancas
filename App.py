@@ -35,7 +35,12 @@ class Funcoes():
     def montatabela(self):
         self.conecta_bd()
         self.cursor.execute("""CREATE TABLE IF NOT EXISTS pagamentos (cod INTEGER PRIMARY KEY, descricao CHAR(40) NOT NULL, valor INTEGER(20) NOT NULL, data INTEGER(20) NOT NULL) """)
-        self.conn.commit();print("banco de dados criado")
+        self.conn.commit();print("banco de dados tabela criado")
+        self.desconecta_bd()
+    def tabelaporcentagem(self):
+        self.conecta_bd()
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS porcentagens (salario INTEGER(10) NOT NULL, lazer INTEGER(10) NOT NULL, despesas INTEGER(10) NOT NULL, investimentos INTEGER(10) NOT NULL, imprevisto INTEGER(10) NOT NULL )""")
+        self.conn.commit();print("banco de dados tabela criado")
         self.desconecta_bd()
     def addinvestimentos(self):
         self.investimentos = self.einvestimentos.get()
@@ -64,7 +69,12 @@ class Funcoes():
         for i in listas:
             self.listagasto.insert("",END, values=i)
         self.desconecta_bd()
-
+    def calcula(self):
+        Janelacalculadora = Tk()
+        self.Janelacalculadora = Janelacalculadora
+        self.Janelacalculadora.geometry("300x500")
+        self.Janelacalculadora.title("Calculadora")
+        Janelacalculadora.mainloop()
 
 class aplicacao(Funcoes):
     def __init__(self):
@@ -75,8 +85,9 @@ class aplicacao(Funcoes):
         self.textosentradas()
         self.lista()
         self.montatabela()
+        self.tabelaporcentagem()
         self.selectlista()
-        Janela.mainloop()  
+        Janela.mainloop()        
     def tela(self):
         self.Janela.title("Controle Finanças")
         self.Janela.configure(background="LightBlue1")
@@ -132,6 +143,9 @@ class aplicacao(Funcoes):
         #botao para remover
         self.bt_f6 = Button(self.frame_6, text="Remover",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
         self.bt_f6.place(relx=0.90, rely=0.90,relwidth=0.08,relheight=0.09)
+        #botao calculadora
+        self.bt_f6 = Button(self.frame_6, text="Calculadora",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'),command=self.calcula)
+        self.bt_f6.place(relx=0.79, rely=0.90,relwidth=0.10,relheight=0.09)     
     def textosentradas(self):
         #introdiçao frame 1
         self.instrucao = Label(self.frame_1, text="Digite suas porcentagens:",bg='azure',fg="gray1",font=('arial', 11, 'bold'))
@@ -260,5 +274,5 @@ class aplicacao(Funcoes):
         self.listagasto.configure(yscroll=self.rolagem.set)
         self.rolagem.place(relx=0.96, rely=0.02, relwidth=0.02,relheight=0.85)
        
-
+       
 aplicacao()
