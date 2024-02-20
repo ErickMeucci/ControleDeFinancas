@@ -5,13 +5,11 @@ import subprocess
 from tkcalendar import DateEntry
 from tkinter import messagebox
 from datetime import datetime
-
-
+import configparser
 
 Janela = Tk()
 
 class Funcoes():
-    
     def limpatelaframe1(self):
         self.psentrada.delete(0, END)
         self.pientrada.delete(0, END)
@@ -37,13 +35,22 @@ class Funcoes():
         self.conn.close(); print('desconecta banco de dados')
     def montatabela(self):
         self.conecta_bd()
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS pagamentos (cod INTEGER PRIMARY KEY, descricao CHAR(40) NOT NULL, valor INTEGER(20) NOT NULL, data INTEGER(20) NOT NULL) """)
+        self.cursor.execute("""CREATE TABLE IF NOT EXISTS pagamentos (cod INTEGER PRIMARY KEY,descricao CHAR(40) NOT NULL,valor INTEGER(20) NOT NULL,data INTEGER(20) NOT NULL, categoria CHAR(20) NOT NULL)""")
         self.conn.commit();print("banco de dados tabela criado")
         self.desconecta_bd()
     def tabelaporcentagem(self):
         self.conecta_bd()
-        self.cursor.execute("""CREATE TABLE IF NOT EXISTS porcentagens (salario INTEGER(10) NOT NULL, lazer INTEGER(10) NOT NULL, despesas INTEGER(10) NOT NULL, investimentos INTEGER(10) NOT NULL, imprevisto INTEGER(10) NOT NULL )""")
-        self.conn.commit();print("banco de dados tabela criado")
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS porcentagens (
+                salario INTEGER(10) NOT NULL,
+                investimentos INTEGER(10) NOT NULL,
+                lazer INTEGER(10) NOT NULL,
+                despesas INTEGER(10) NOT NULL,
+                improvisos INTEGER(10) NOT NULL
+            )
+        """)
+        self.conn.commit()
+        print("Banco de dados tabela porcentagens criado")
         self.desconecta_bd()
     def is_number(self, value):
         try:
@@ -75,8 +82,7 @@ class Funcoes():
             return
 
         self.conecta_bd()
-        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data) VALUES (?,?,?)""",
-                            (investimentos, valor_investimentos, data_investimentos))
+        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data, categoria) VALUES (?,?,?,?)""",(investimentos, valor_investimentos, data_investimentos,"investimentos"))
         self.conn.commit()
         self.desconecta_bd()
         self.selectlista()
@@ -96,7 +102,7 @@ class Funcoes():
             messagebox.showerror("Erro", "A data do lazer não é válida.")
             return
         self.conecta_bd()
-        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data) VALUES (?,?,?)""",(lazer1, lazer2, lazer3))
+        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data, categoria) VALUES (?,?,?,?)""",(lazer1, lazer2, lazer3, "lazer"))
         self.conn.commit()
         self.desconecta_bd()
         self.selectlista()
@@ -119,8 +125,7 @@ class Funcoes():
             return
 
         self.conecta_bd()
-        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data) VALUES (?,?,?)""",
-                            (despesa1, despesa2, despesa3))
+        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data, categoria) VALUES (?,?,?,?)""",(despesa1, despesa2, despesa3, "despesa"))
         self.conn.commit()
         self.desconecta_bd()
         self.selectlista()
@@ -143,8 +148,7 @@ class Funcoes():
             return
 
         self.conecta_bd()
-        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data) VALUES (?,?,?)""",
-                            (improvisos1, improvisos2, improvisos3))
+        self.cursor.execute("""INSERT INTO pagamentos (descricao, valor, data, categoria) VALUES (?,?,?,?)""", (improvisos1, improvisos2, improvisos3, "imprevisto"))
         self.conn.commit()
         self.desconecta_bd()
         self.selectlista()
@@ -152,10 +156,37 @@ class Funcoes():
     def selectlista(self, selected_month=None):
         self.listagasto.delete(*self.listagasto.get_children())
         self.conecta_bd()
-        listas = self.cursor.execute("""SELECT cod, descricao, valor, data FROM pagamentos ORDER BY data ASC;""")
+
+        if selected_month is not None:
+            print("Entrou no filtro de mês")
+            print(f"Mês selecionado: {selected_month}")
+
+        # Use a query parametrizada para evitar problemas com a formatação da data
+            self.cursor.execute(
+            """SELECT cod, descricao, valor, data FROM pagamentos WHERE substr(data, 4, 2) = ? ORDER BY date(data) ASC;""",
+                (str(selected_month).zfill(2),)
+            )
+        else:
+            self.cursor.execute("""SELECT cod, descricao, valor, data FROM pagamentos ORDER BY date(data) ASC;""")
+
+        listas = self.cursor.fetchall()
+
+        print(f"Listas após a consulta: {listas}")
+
         for i in listas:
-            self.listagasto.insert("",END, values=i)
+            self.listagasto.insert("", END, values=i)
+
         self.desconecta_bd()
+        # Calcular total de gastos
+        total_imprevistos = self.calcular_total_categoria('imprevisto', selected_month)
+        total_investimentos = self.calcular_total_categoria('investimentos', selected_month)
+        total_lazer = self.calcular_total_categoria('lazer', selected_month)
+        total_despesa = self.calcular_total_categoria('despesa', selected_month)
+        # Atualizar o rótulo correspondente no Frame
+        self.imprevisto_total.config(text=f"Imprevistodo Mês:R$ {total_imprevistos:.2f}")
+        self.lazer_total.config(text=f"Lazer do Mês:R$ {total_lazer:.2f}")
+        self.investimento_total.config(text=f"Investimento do Mês:R$ {total_investimentos:.2f}")
+        self.despesas_total.config(text=f"Despesas do Mês:R$ {total_despesa:.2f}")   
     def remover_item(self):
         item_selecionado = self.listagasto.selection()
         if not item_selecionado:
@@ -167,14 +198,38 @@ class Funcoes():
         self.conn.commit()
         self.desconecta_bd()
         self.selectlista() 
+    def calcular_porcentagens(self, salario):
+        porcentagem_investimentos = float(self.pientrada.get()) if self.pientrada.get() else 0
+        porcentagem_lazer = float(self.plazer.get()) if self.plazer.get() else 0
+        porcentagem_despesas = float(self.pdentrada.get()) if self.pdentrada.get() else 0
+        porcentagem_improvisos = float(self.pimentrada.get()) if self.pimentrada.get() else 0
+
+        valor_investimentos = (porcentagem_investimentos / 100) * salario
+        valor_lazer = (porcentagem_lazer / 100) * salario
+        valor_despesas = (porcentagem_despesas / 100) * salario
+        valor_improvisos = (porcentagem_improvisos / 100) * salario
+
+        # Atualizar os rótulos correspondentes nos Frames
+        self.minvestimentos.config(text=f"R$ {valor_investimentos:.2f}")
+        self.mlazer.config(text=f"R$ {valor_lazer:.2f}")
+        self.mdespesas.config(text=f"R$ {valor_despesas:.2f}")
+        self.mimprovisos.config(text=f"R$ {valor_improvisos:.2f}")  
+    def calcular_total_categoria(self, categoria, selected_month):
+        self.conecta_bd()
+        self.cursor.execute("""SELECT SUM(valor) FROM pagamentos WHERE categoria = ? AND substr(data, 4, 2) = ?""", (categoria, str(selected_month).zfill(2)))
+        total = self.cursor.fetchone()[0]
+        self.desconecta_bd()
+        return total if total else 0.0
 
 class aplicacao(Funcoes):
     def __init__(self):
         self.Janela = Janela
         self.tela()
+        self.selected_month = None
         self.frames_tela_principal()
         self.botoes()
         self.textosentradas()
+        self.carregar_porcentagens_salvas()
         self.lista()
         self.montatabela()
         self.tabelaporcentagem()
@@ -204,7 +259,7 @@ class aplicacao(Funcoes):
     def botoes(self):
 
         #botao para adcionar as porcentagens
-        self.bt_f1 = Button(self.frame_1, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bt_f1 = Button(self.frame_1, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'),command=self.add_porcentagens)
         self.bt_f1.place(relx=0.89, rely=0.05,relwidth=0.1,relheight=0.40)
         self.bta_f1 = Button(self.frame_1, text="Limpar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'),command=self.limpatelaframe1)
         self.bta_f1.place(relx=0.89, rely=0.55,relwidth=0.1,relheight=0.40)
@@ -221,13 +276,13 @@ class aplicacao(Funcoes):
         self.bta_f3 = Button(self.frame_3, image=self.imagemlixo,bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'),command=self.limpatelaframe3)
         self.bta_f3.place(relx=0.70, rely=0.73,relwidth=0.09,relheight=0.25)
         #botao para adicinar o despesas
-        self.bt_f4 = Button(self.frame_4, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bt_f4 = Button(self.frame_4, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'), command=self.adddespesas)
         self.bt_f4.place(relx=0.80, rely=0.73,relwidth=0.20,relheight=0.25)
 
         self.bta_f4 = Button(self.frame_4, image=self.imagemlixo,bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'),command=self.limpatelaframe4)
         self.bta_f4.place(relx=0.70, rely=0.73,relwidth=0.09,relheight=0.25)
         #botao para adicinar o improvisos
-        self.bt_f5 = Button(self.frame_5, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bt_f5 = Button(self.frame_5, text="Adicionar",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'), command=self.addimprovisos)
         self.bt_f5.place(relx=0.80, rely=0.73,relwidth=0.20,relheight=0.25)
 
         self.bta_f5 = Button(self.frame_5, image=self.imagemlixo, bd=3, bg="ghost white",fg="gray1",font=('arial', 9, 'bold'),command=self.limpatelaframe5)
@@ -243,7 +298,7 @@ class aplicacao(Funcoes):
         self.datageralt.place(relx=0.57,rely=0.90,relheight=0.09)
         self.datageral = DateEntry(self.frame_6, date_pattern='dd/mm/yyyy') 
         self.datageral.place(relx=0.62, rely=0.90,relwidth=0.1,relheight=0.09)  
-        self.bt_f8 = Button(self.frame_6, text="OK",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'))
+        self.bt_f8 = Button(self.frame_6, text="OK",bd=3,bg="ghost white",fg="gray1",font=('arial', 9, 'bold'), command=self.bt_f8_click)
         self.bt_f8.place(relx=0.725, rely=0.90,relwidth=0.04,relheight=0.09)
     def textosentradas(self):
         #introdiçao frame 1
@@ -355,6 +410,15 @@ class aplicacao(Funcoes):
         self.tipo.place(relx=0.70,rely=0.40)
         self.mimprovisos = Label(self.frame_5,text="x",bg='azure',fg="gray1",font=('arial', 9))
         self.mimprovisos.place(relx=0.80,rely=0.40)
+        #entrada improvisos frame 6
+        self.lazer_total = Label(self.frame_6, text="Lazer do mês:",bg='azure',fg="gray1",font=('arial', 11, 'bold'))
+        self.lazer_total.place(relx=0.01,rely=0.82,relheight=0.09)
+        self.despesas_total = Label(self.frame_6, text="Despesas do mês:",bg='azure',fg="gray1",font=('arial', 11, 'bold'))
+        self.despesas_total.place(relx=0.01,rely=0.90,relheight=0.09)
+        self.investimento_total = Label(self.frame_6, text="Investimento do mês:",bg='azure',fg="gray1",font=('arial', 11, 'bold'))
+        self.investimento_total.place(relx=0.30,rely=0.82,relheight=0.09)
+        self.imprevisto_total = Label(self.frame_6, text="Imprevisto do mês:",bg='azure',fg="gray1",font=('arial', 11, 'bold'))
+        self.imprevisto_total.place(relx=0.30,rely=0.90,relheight=0.09)
     def lista(self):
         self.listagasto = ttk.Treeview(self.frame_6, height=3, column=("coli1", "coli2", "coli3","coli4"))
         self.listagasto.heading("#0",text="")
@@ -367,14 +431,94 @@ class aplicacao(Funcoes):
         self.listagasto.column('#2',width=200)
         self.listagasto.column('#3',width=125)
         self.listagasto.column('#4',width=125)
-        self.listagasto.place(relx=0.01,rely=0.02,relwidth=0.95,relheight=0.85)
+        self.listagasto.place(relx=0.01,rely=0.02,relwidth=0.95,relheight=0.80)
 
         self.rolagem = Scrollbar(self.frame_6, orient='vertical')
         self.listagasto.configure(yscroll=self.rolagem.set)
-        self.rolagem.place(relx=0.96, rely=0.02, relwidth=0.02,relheight=0.85)
+        self.rolagem.place(relx=0.96, rely=0.02, relwidth=0.02,relheight=0.80)
     def botao_calculadora(self):
         caminho_calculadora = "C:\\Users\\Erick\\Desktop\\Controle financeiro\\calcular.py"
         subprocess.Popen(["python", caminho_calculadora])
-   
-       
+    def bt_f8_click(self):
+        self.filtrar_por_mes()
+    def filtrar_por_mes(self):
+        print("Entrou na função filtrar_por_mes")
+        selected_date = self.datageral.get_date()
+        print("Data selecionada:", selected_date)
+
+        if selected_date:
+            selected_month = selected_date.month
+            print("Mês selecionado:", selected_month)
+            self.selectlista(selected_month)
+        else:
+            messagebox.showwarning("Aviso", "Selecione uma data válida.")
+    def add_porcentagens(self):
+        salario = float(self.psentrada.get()) if self.psentrada.get() else 0
+        if salario <= 0:
+            messagebox.showerror("Erro", "Salário inválido.")
+            return
+
+        # Calcular os valores
+        self.calcular_porcentagens(salario)
+
+        # Salvar as porcentagens em um arquivo de configuração
+        self.salvar_porcentagens(salario)
+    def carregar_porcentagens_salvas(self):
+    # Inicializar o parser
+        config = configparser.ConfigParser()
+
+    # Tentar carregar as configurações do arquivo
+        try:
+            config.read('config.ini')
+
+        # Atualizar os campos de entrada com as porcentagens salvas
+            self.psentrada.delete(0, END)
+            self.psentrada.insert(0, config.get('Configuracoes', 'Salario'))
+
+            self.pientrada.delete(0, END)
+            self.pientrada.insert(0, config.get('Porcentagens', 'Investimentos'))
+
+            self.plazer.delete(0, END)
+            self.plazer.insert(0, config.get('Porcentagens', 'Lazer'))
+
+            self.pdentrada.delete(0, END)
+            self.pdentrada.insert(0, config.get('Porcentagens', 'Despesas'))
+
+            self.pimentrada.delete(0, END)
+            self.pimentrada.insert(0, config.get('Porcentagens', 'Improvisos'))
+
+        # Atualizar os campos de gastos mensais mínimos
+            self.minvestimentos.config(text=config.get('GastosMinimos', 'MInvestimentos'))
+            self.mlazer.config(text=config.get('GastosMinimos', 'MLazer'))
+            self.mdespesas.config(text=config.get('GastosMinimos', 'MDespesas'))
+            self.mimprovisos.config(text=config.get('GastosMinimos', 'MImprovisos'))
+
+        except configparser.Error:
+        # Tratar qualquer erro ao ler o arquivo de configuração
+            pass
+    def salvar_porcentagens(self, salario):
+    # Inicializar o parser
+        config = configparser.ConfigParser()
+
+    # Adicionar as porcentagens ao arquivo de configuração
+        config['Configuracoes'] = {'Salario': salario}
+        config['Porcentagens'] = {
+        'Investimentos': self.pientrada.get(),
+        'Lazer': self.plazer.get(),
+        'Despesas': self.pdentrada.get(),
+        'Improvisos': self.pimentrada.get()
+        }
+
+    # Adicionar os gastos mensais mínimos ao arquivo de configuração
+        config['GastosMinimos'] = {
+        'MInvestimentos': self.minvestimentos.cget('text'),
+        'MLazer': self.mlazer.cget('text'),
+        'MDespesas': self.mdespesas.cget('text'),
+        'MImprovisos': self.mimprovisos.cget('text')
+        }
+
+    # Salvar as configurações no arquivo
+        with open('config.ini', 'w') as configfile:
+            config.write(configfile)
+
 aplicacao()
