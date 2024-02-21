@@ -153,17 +153,29 @@ class Funcoes():
         self.desconecta_bd()
         self.selectlista()
         self.limpatelaframe5()
-    def selectlista(self, selected_month=None):
+    def selectlista(self, selected_month=None, selected_year=None):
         self.listagasto.delete(*self.listagasto.get_children())
         self.conecta_bd()
 
-        if selected_month is not None:
+        if selected_month and selected_year:
+            print("Entrou no filtro de mês e ano")
+            print(f"Mês selecionado: {selected_month}")
+            print(f"Ano selecionado: {selected_year}")
+
+            self.cursor.execute(
+                """SELECT cod, descricao, valor, data FROM pagamentos 
+                   WHERE substr(data, 4, 2) = ? AND substr(data, 7, 4) = ? 
+                   ORDER BY date(data) ASC;""",
+                (str(selected_month).zfill(2), str(selected_year))
+            )
+        elif selected_month:
             print("Entrou no filtro de mês")
             print(f"Mês selecionado: {selected_month}")
 
-        # Use a query parametrizada para evitar problemas com a formatação da data
             self.cursor.execute(
-            """SELECT cod, descricao, valor, data FROM pagamentos WHERE substr(data, 4, 2) = ? ORDER BY date(data) ASC;""",
+                """SELECT cod, descricao, valor, data FROM pagamentos 
+                   WHERE substr(data, 4, 2) = ? AND substr(data, 7, 4) = strftime('%Y', 'now') 
+                   ORDER BY date(data) ASC;""",
                 (str(selected_month).zfill(2),)
             )
         else:
@@ -177,16 +189,18 @@ class Funcoes():
             self.listagasto.insert("", END, values=i)
 
         self.desconecta_bd()
+
         # Calcular total de gastos
-        total_imprevistos = self.calcular_total_categoria('imprevisto', selected_month)
-        total_investimentos = self.calcular_total_categoria('investimentos', selected_month)
-        total_lazer = self.calcular_total_categoria('lazer', selected_month)
-        total_despesa = self.calcular_total_categoria('despesa', selected_month)
+        total_imprevistos = self.calcular_total_categoria('imprevisto', selected_month, selected_year)
+        total_investimentos = self.calcular_total_categoria('investimentos', selected_month, selected_year)
+        total_lazer = self.calcular_total_categoria('lazer', selected_month, selected_year)
+        total_despesa = self.calcular_total_categoria('despesa', selected_month, selected_year)
+
         # Atualizar o rótulo correspondente no Frame
-        self.imprevisto_total.config(text=f"Imprevistodo Mês:R$ {total_imprevistos:.2f}")
-        self.lazer_total.config(text=f"Lazer do Mês:R$ {total_lazer:.2f}")
-        self.investimento_total.config(text=f"Investimento do Mês:R$ {total_investimentos:.2f}")
-        self.despesas_total.config(text=f"Despesas do Mês:R$ {total_despesa:.2f}")   
+        self.imprevisto_total.config(text=f"Imprevisto do Mês: R$ {total_imprevistos:.2f}")
+        self.lazer_total.config(text=f"Lazer do Mês: R$ {total_lazer:.2f}")
+        self.investimento_total.config(text=f"Investimento do Mês: R$ {total_investimentos:.2f}")
+        self.despesas_total.config(text=f"Despesas do Mês: R$ {total_despesa:.2f}")
     def remover_item(self):
         item_selecionado = self.listagasto.selection()
         if not item_selecionado:
@@ -214,12 +228,32 @@ class Funcoes():
         self.mlazer.config(text=f"R$ {valor_lazer:.2f}")
         self.mdespesas.config(text=f"R$ {valor_despesas:.2f}")
         self.mimprovisos.config(text=f"R$ {valor_improvisos:.2f}")  
-    def calcular_total_categoria(self, categoria, selected_month):
+    def calcular_total_categoria(self, categoria, selected_month=None, selected_year=None):
         self.conecta_bd()
-        self.cursor.execute("""SELECT SUM(valor) FROM pagamentos WHERE categoria = ? AND substr(data, 4, 2) = ?""", (categoria, str(selected_month).zfill(2)))
+
+        if selected_month and selected_year:
+            self.cursor.execute(
+                """SELECT SUM(valor) FROM pagamentos 
+                   WHERE substr(data, 4, 2) = ? AND substr(data, 7, 4) = ? AND categoria = ?;""",
+                (str(selected_month).zfill(2), str(selected_year), categoria)
+            )
+        elif selected_month:
+            self.cursor.execute(
+                """SELECT SUM(valor) FROM pagamentos 
+                   WHERE substr(data, 4, 2) = ? AND substr(data, 7, 4) = strftime('%Y', 'now') AND categoria = ?;""",
+                (str(selected_month).zfill(2), categoria)
+            )
+        else:
+            self.cursor.execute(
+                """SELECT SUM(valor) FROM pagamentos 
+                   WHERE categoria = ?;""",
+                (categoria,)
+            )
+
         total = self.cursor.fetchone()[0]
         self.desconecta_bd()
-        return total if total else 0.0
+
+        return total if total else 0
 
 class aplicacao(Funcoes):
     def __init__(self):
